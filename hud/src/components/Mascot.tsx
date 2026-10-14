@@ -38,7 +38,8 @@ function Meter({ label, value, color }: { label: string; value: number; color: s
   )
 }
 
-type Props = { size?: 'sm' | 'md'; className?: string }
+/** `row`: the figure beside its phrase and meters (the side chat's narrow column). */
+type Props = { size?: 'sm' | 'md' | 'row'; className?: string }
 
 /** The assistant's tamagotchi: reacts to what happens in the chat (thinking, speaking, done, confused),
  * sleeps at night, gets tired without conversation and is in a good mood when tasks move along. */
@@ -57,8 +58,9 @@ export function Mascot({ size = 'md', className }: Props) {
     PHRASE[state].replace('{him}', pronoun(agent.gender).object) ||
     (humor >= 70 ? 'in a great mood: the tasks are moving along' : humor < 35 ? 'worried about the overdue tasks' : 'serene, at your service')
 
+  const row = size === 'row'
   return (
-    <div className={cn('flex flex-col items-center gap-2', className)}>
+    <div className={cn('flex items-center', row ? 'gap-3' : 'flex-col gap-2', className)}>
       <button
         type="button"
         onClick={() => {
@@ -68,19 +70,21 @@ export function Mascot({ size = 'md', className }: Props) {
         aria-label={`Pet ${agent.name}`}
         title={`Pet ${pronoun(agent.gender).object}`}
         data-state={state}
-        className={cn('mascot cursor-pointer rounded-card', size === 'sm' ? 'size-20' : 'size-48')}
+        className={cn('mascot shrink-0 cursor-pointer rounded-card', size === 'md' ? 'size-48' : size === 'row' ? 'size-16' : 'size-20')}
       >
         <WizardFigure state={state} gender={agent.gender} avatar={agent.avatar} />
       </button>
-      <p role="status" className="text-center text-xs font-semibold text-ink-muted">
-        {agent.name}: {phrase}
-      </p>
-      {size === 'md' && (
-        <div className="flex w-full max-w-56 flex-col gap-1.5">
-          <Meter label="Energy" value={m.energy} color="bg-gold" />
-          <Meter label="Mood" value={humor} color="bg-primary" />
-        </div>
-      )}
+      <div className={cn('flex flex-col gap-2', row ? 'min-w-0 flex-1' : 'w-full items-center')}>
+        <p role="status" className={cn('text-xs font-semibold text-ink-muted', !row && 'text-center')}>
+          {agent.name}: {phrase}
+        </p>
+        {size !== 'sm' && (
+          <div className="flex w-full max-w-56 flex-col gap-1.5">
+            <Meter label="Energy" value={m.energy} color="bg-gold" />
+            <Meter label="Mood" value={humor} color="bg-primary" />
+          </div>
+        )}
+      </div>
     </div>
   )
 }

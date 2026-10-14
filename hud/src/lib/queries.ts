@@ -104,6 +104,7 @@ export function useAsk() {
       confirm = false,
       forceTier,
       source = 'hud',
+      view,
       note,
       conversationId,
       deep,
@@ -112,7 +113,8 @@ export function useAsk() {
       confirm?: boolean
       forceTier?: 1 | 2 | 3
       source?: 'hud' | 'voice'
-      /** Open study note: goes as context ("ask about this topic"). */
+      /** What's on screen (lib/screenContext): its name and the memory note it shows, as context. */
+      view?: string
       note?: string
       /** The conversation this continues (null starts one). */
       conversationId?: string | null
@@ -124,6 +126,7 @@ export function useAsk() {
         source,
         confirm,
         force_tier: forceTier ?? null,
+        view: view ?? null,
         note: note ?? null,
         conversation_id: conversationId ?? null,
         deep: deep ?? null,

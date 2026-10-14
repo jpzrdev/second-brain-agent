@@ -1,9 +1,9 @@
 import { Brain, MessagesSquare, Pencil, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router'
 import { Markdown } from '../components/Markdown'
 import { Badge, Button, Card, EmptyState, Input, Modal, SearchInput, useToast } from '../components/ui'
 import type { ConversationPreview } from '../lib/api'
+import { assistantPanel } from '../lib/assistantPanel'
 import { chat, useChat } from '../lib/chatStore'
 import { useConversationAction, useConversations, useDeleteConversation, useUpdateConversation } from '../lib/queries'
 import { relativeTime } from '../lib/time'
@@ -51,7 +51,6 @@ export function Conversations() {
   const open = useConversationAction()
   const remove = useDeleteConversation()
   const toast = useToast()
-  const navigate = useNavigate()
   const [renaming, setRenaming] = useState<ConversationPreview | null>(null)
 
   function continueIt(id: string) {
@@ -59,8 +58,9 @@ export function Conversations() {
       { id, action: 'open' },
       {
         onSuccess: (c) => {
+          // It goes on in the side chat, beside the list (a sheet over it on the phone).
           chat.load(c)
-          navigate('/chat')
+          assistantPanel.open()
         },
         onError: (e) => toast('error', e.message),
       },

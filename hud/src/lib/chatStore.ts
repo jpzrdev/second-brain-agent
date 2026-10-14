@@ -3,16 +3,16 @@ import { api, type Conversation, type GandalfReply } from './api'
 
 // The conversation on screen. The Bridge keeps every conversation (the source of truth, shared by the PC, the phone
 // and the voice); this store is the view of the current one: its id, its turns and the ones still thinking.
-// The main chat (Chat screen, Orb, voice) keeps it in localStorage to come back to it; a chat about a study note
-// has its own store, in memory only.
-export type Turn = { id: string; question: string; reply?: GandalfReply; error?: string; at: string }
+// The main chat (Today, the side panel, voice) keeps it in localStorage to come back to it.
+/** `view`: the screen the question was asked from (it went along as context). */
+export type Turn = { id: string; question: string; view?: string; reply?: GandalfReply; error?: string; at: string }
 export type ChatState = { conversationId: string | null; deep: boolean; turns: Turn[] }
 
 export type ChatStore = {
   get(): ChatState
   subscribe(listener: () => void): () => void
   /** A question sent: a turn "thinking" until `settle` or an error. */
-  add(question: string): string
+  add(question: string, view?: string): string
   update(id: string, data: Partial<Turn>): void
   /** The reply arrived: it says which conversation the turn went into. */
   settle(id: string, reply: GandalfReply): void
@@ -45,6 +45,7 @@ export function turnsOf(c: Conversation): Turn[] {
   return c.turns.map((t) => ({
     id: t.id,
     question: t.question,
+    view: t.view ?? undefined,
     at: t.at,
     reply: t.reply ?? {
       id: t.receipt_id,
@@ -82,9 +83,9 @@ export function createChatStore(key?: string): ChatStore {
       listeners.add(f)
       return () => listeners.delete(f)
     },
-    add(question) {
+    add(question, view) {
       const id = crypto.randomUUID()
-      set({ ...state, turns: [...state.turns, { id, question, at: new Date().toISOString() }] })
+      set({ ...state, turns: [...state.turns, { id, question, view, at: new Date().toISOString() }] })
       return id
     },
     update(id, data) {
@@ -117,7 +118,7 @@ export function createChatStore(key?: string): ChatStore {
   return store
 }
 
-/** The main chat (Chat screen, the Orb's dialog and the voice). */
+/** The main chat (Today, the side panel and the voice). */
 export const chat = createChatStore(KEY)
 
 export function useChat(store: ChatStore = chat): ChatState {

@@ -16,7 +16,6 @@
     { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
   ],
   "shortcuts": [
-    { "name": "Chat with Gandalf", "url": "/chat", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] },
     { "name": "Terminals", "url": "/terminals", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] }
   ]
 }

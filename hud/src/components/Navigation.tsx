@@ -1,6 +1,7 @@
-import { Blocks, BookMarked, CalendarDays, ChevronDown, GraduationCap, Library, MessageCircle, MessagesSquare, Palette, Receipt, Repeat, Search, Settings2, Sparkles, SlidersHorizontal, TerminalSquare, WandSparkles } from 'lucide-react'
+import { Blocks, MessageCircle, BookMarked, CalendarDays, ChevronDown, GraduationCap, Library, MessagesSquare, Palette, Receipt, Repeat, Search, Settings2, Sparkles, SlidersHorizontal, TerminalSquare, WandSparkles } from 'lucide-react'
 import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { NavLink, useLocation } from 'react-router'
+import { assistantPanel, useAssistantPanel } from '../lib/assistantPanel'
 import { cn } from '../lib/cn'
 import { useAgent, useModules, useSpaces } from '../lib/queries'
 import { SpaceIcon } from './spaces/icons'
@@ -12,7 +13,6 @@ type NavItem = { to: string; label: string; icon: ReactNode; hint?: string }
 /** The everyday screens: always on the menu. */
 const MAIN: NavItem[] = [
   { to: '/', label: 'Today', icon: <CalendarDays /> },
-  { to: '/chat', label: 'Chat', icon: <MessageCircle /> },
 ]
 
 /** The screens that are modules (the page modules link to /p/<id>). */
@@ -168,7 +168,7 @@ function AgentMenuPanel({ id, name, className }: { id: string; name: string; cla
   )
 }
 
-/** The top menu (from the tablet up): Today, Chat, the modules that are on, and a menu named after the assistant. */
+/** The top menu (from the tablet up): Today, the modules that are on, and a menu named after the assistant. */
 export function TopNav() {
   const { pathname } = useLocation()
   const agent = useAgent()
@@ -178,7 +178,7 @@ export function TopNav() {
   const links = useModuleLinks()
   const inModules = isActive('/modules', pathname) || links.some((l) => isActive(l.to, pathname))
   const agentActive = inAgent(pathname)
-  // The pill sits on Today/Chat, on "Modules" (index 2) or on the assistant (index 3).
+  // The pill sits on Today, on "Modules" (index 1) or on the assistant (index 2).
   const active = agentActive ? MAIN.length + 1 : inModules ? MAIN.length : MAIN.findIndex((l) => isActive(l.to, pathname))
   const { container, items, style } = useIndicator<HTMLElement>(active)
   const item = (on: boolean) =>
@@ -247,7 +247,7 @@ const bottomItem = (active: boolean) =>
     active ? 'text-primary-text shadow-sunken-sm [&_svg]:animate-[icon-active_400ms_ease-out]' : 'text-ink-muted',
   )
 
-/** The bottom bar on the phone: always four buttons (Today, Chat, Modules and the assistant's menu). */
+/** The bottom bar on the phone: always four buttons (Today, the chat, Modules and the assistant's menu). */
 export function BottomNav() {
   const { pathname } = useLocation()
   const agent = useAgent()
@@ -255,6 +255,7 @@ export function BottomNav() {
   const modulesId = useId()
   const agentId = useId()
   const links = useModuleLinks()
+  const chatOpen = useAssistantPanel()
   const panel = 'mb-3 max-h-[calc(100dvh-7rem)] max-w-full overflow-y-auto'
 
   return (
@@ -268,6 +269,10 @@ export function BottomNav() {
             {l.label}
           </NavLink>
         ))}
+        <button type="button" aria-pressed={chatOpen} onClick={assistantPanel.toggle} className={bottomItem(chatOpen)}>
+          <MessageCircle />
+          Chat
+        </button>
         <button
           type="button"
           data-opens="modules"

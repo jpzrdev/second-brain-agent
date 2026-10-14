@@ -1,6 +1,7 @@
-import { lazy, Suspense } from 'react'
-import { BrowserRouter, Route, Routes } from 'react-router'
+import { lazy, Suspense, useEffect } from 'react'
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router'
 import { Layout } from './components/Layout'
+import { assistantPanel } from './lib/assistantPanel'
 import { ToastProvider } from './components/ui'
 import { Today } from './screens/Today'
 
@@ -8,7 +9,6 @@ import { Today } from './screens/Today'
 const screen = <T extends string>(load: () => Promise<Record<T, React.ComponentType>>, name: T) =>
   lazy(() => load().then((m) => ({ default: m[name] })))
 
-const Chat = screen(() => import('./screens/Chat'), 'Chat')
 const Terminals = screen(() => import('./screens/Terminals'), 'Terminals')
 const Skills = screen(() => import('./screens/Skills'), 'Skills')
 const Routines = screen(() => import('./screens/Routines'), 'Routines')
@@ -28,6 +28,12 @@ const ModulePreview = screen(() => import('./screens/Spaces'), 'ModulePreview')
 const SpaceScreen = screen(() => import('./screens/Spaces'), 'SpaceScreen')
 const SpaceItemScreen = screen(() => import('./screens/Spaces'), 'SpaceItemScreen')
 
+/** Old links and notifications to /chat: the day, with the side chat open. */
+function OpenChat() {
+  useEffect(() => assistantPanel.open(), [])
+  return <Navigate to="/" replace state={{ keepChat: true }} />
+}
+
 export default function App() {
   return (
     <ToastProvider>
@@ -43,7 +49,8 @@ export default function App() {
           />
           <Route element={<Layout />}>
             <Route index element={<Today />} />
-            <Route path="chat" element={<Chat />} />
+            {/* The chat is the side panel now; old links and notifications open it. */}
+            <Route path="chat" element={<OpenChat />} />
             <Route path="terminals" element={<Terminals />} />
             <Route path="skills" element={<Skills />} />
             <Route path="routines" element={<Routines />} />

@@ -1,11 +1,12 @@
-import { BookmarkPlus, ChevronDown, GitBranch, Send, Terminal, Undo2 } from 'lucide-react'
+import { BookmarkPlus, ChevronDown, Eye, GitBranch, Send, Terminal, Undo2 } from 'lucide-react'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link } from 'react-router'
 import type { ProposalSummary } from '../lib/api'
-import { chat, createChatStore, useChat, type ChatStore, type Turn } from '../lib/chatStore'
+import { chat, useChat, type ChatStore, type Turn } from '../lib/chatStore'
 import { mascot, reactToReply } from '../lib/mascot'
 import { cn } from '../lib/cn'
 import { useAsk, useCapture, useConversationAction, useSessions } from '../lib/queries'
+import { screen } from '../lib/screenContext'
 import { SESSION_STATUS } from '../lib/sessions'
 import { EventProposal } from './EventProposal'
 import { GandalfText } from './GandalfText'
@@ -16,14 +17,16 @@ import { focusRing } from './ui/styles'
 
 const SUGGESTIONS = ['what do I have today?', 'my priorities', 'remind me to … in 30 min', 'add task …', 'organize my raw/']
 
-function useSend(store: ChatStore, note?: string) {
+function useSend(store: ChatStore) {
   const ask = useAsk()
   function send(question: string, confirm = false) {
-    const id = store.add(question)
+    // What's on screen goes along: "explain this" on a study topic is about that topic.
+    const context = screen.current()
+    const id = store.add(question, context?.view)
     mascot.feed(15)
     const { conversationId, deep } = store.get()
     ask.mutate(
-      { text: question, confirm, note, conversationId, deep },
+      { text: question, confirm, view: context?.view, note: context?.note, conversationId, deep },
       {
         onSuccess: (reply) => {
           store.settle(id, reply)
@@ -169,21 +172,16 @@ function Reply({ t, last, send, store }: { t: Turn; last: boolean; send: (q: str
 type Props = {
   className?: string
   height?: string
-  /** A conversation about a study note: the questions go with it as context, in a conversation of its own. */
-  note?: string
   placeholder?: string
-  /** Shows only the turns made here (not the whole chat history). */
-  newOnly?: boolean
+  /** Focuses the field when it shows up (the side panel opening). */
+  autoFocus?: boolean
 }
 
 /** The conversation with Gandalf: a tier badge on each reply and a mini terminal on Tier 3 replies. */
-export function ChatThread({ className, height = 'max-h-[60vh]', note, placeholder = 'Ask or request something…', newOnly = false }: Props) {
-  // A note's chat is its own conversation; everything else continues the main one.
-  const [store] = useState(() => (note ? createChatStore() : chat))
-  const all = useChat(store).turns
-  const [since] = useState(() => (newOnly ? all.length : 0))
-  const turns = newOnly ? all.slice(since) : all
-  const { send, pending } = useSend(store, note)
+export function ChatThread({ className, height = 'max-h-[60vh]', placeholder = 'Ask or request something…', autoFocus = false }: Props) {
+  const store = chat
+  const { turns } = useChat(store)
+  const { send, pending } = useSend(store)
   const [text, setText] = useState('')
   const end = useRef<HTMLDivElement>(null)
   const field = useRef<HTMLInputElement>(null)
@@ -204,7 +202,7 @@ export function ChatThread({ className, height = 'max-h-[60vh]', note, placehold
   return (
     <div className={cn('flex flex-col gap-4', className)}>
       <div className={cn('flex flex-col gap-5 overflow-y-auto p-1', height)}>
-        {turns.length === 0 && !newOnly && (
+        {turns.length === 0 && (
           <div className="flex flex-col gap-3">
             <p className="text-sm text-ink-muted">
               Ask anything. Simple rules answer right away (T1); the rest goes to Claude Code (T2 fast or
@@ -230,6 +228,11 @@ export function ChatThread({ className, height = 'max-h-[60vh]', note, placehold
         {turns.map((t, i) => (
           <div key={t.id} className="anim-message flex flex-col gap-2">
             <p className="max-w-[85%] self-end rounded-control px-3 py-2 text-sm font-semibold shadow-sunken-sm">{t.question}</p>
+            {t.view && (
+              <p className="-mt-1 flex max-w-[85%] items-center gap-1 self-end text-xs text-ink-muted" title="What was on screen went along">
+                <Eye className="size-3 shrink-0" aria-hidden /> <span className="truncate">{t.view}</span>
+              </p>
+            )}
             {t.reply && <Reply t={t} last={i === turns.length - 1} send={send} store={store} />}
             {t.error && (
               <p role="alert" className="text-sm font-semibold text-danger">
@@ -244,6 +247,7 @@ export function ChatThread({ className, height = 'max-h-[60vh]', note, placehold
       <form onSubmit={submit} className="flex items-center gap-3">
         <input
           ref={field}
+          autoFocus={autoFocus}
           aria-label="Question for Gandalf"
           value={text}
           onChange={(e) => setText(e.target.value)}

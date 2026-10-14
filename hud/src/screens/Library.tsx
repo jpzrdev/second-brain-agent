@@ -1,7 +1,6 @@
-import { ArrowLeft, BookMarked, ChevronDown, Compass, FileText, Globe, Hourglass, ListChecks, Map as MapIcon, MessageCircleQuestion, Plus, RefreshCw } from 'lucide-react'
+import { ArrowLeft, BookMarked, ChevronDown, Compass, FileText, Globe, Hourglass, ListChecks, Map as MapIcon, Plus, RefreshCw } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
-import { ChatThread } from '../components/ChatThread'
 import { Markdown } from '../components/Markdown'
 import { ResearchActions } from '../components/ResearchResult'
 import { Badge, BentoGrid, BentoItem, Button, Card, EmptyState, Modal, Tabs, Textarea, useToast } from '../components/ui'
@@ -10,6 +9,7 @@ import { isSessionActive, type Ephemeral, type LibraryTopic, type Session } from
 import { cn } from '../lib/cn'
 import { shortDate } from '../lib/dates'
 import { useChecklistToTasks, useEphemeral, useLibrary, useLibraryTopic, useNewResearch, useNote, useSessions, useAgent } from '../lib/queries'
+import { useScreenContext } from '../lib/screenContext'
 import { expiresIn, relativeTime } from '../lib/time'
 
 const url = (slug: string, note?: string) => `/library/${encodeURIComponent(slug)}${note ? `?part=${encodeURIComponent(note)}` : ''}`
@@ -213,6 +213,8 @@ export function LibraryTopicScreen() {
   const [updating, setUpdating] = useState(false)
   const part = params.get('part') ?? t?.index ?? null
   const { data: note, isPending: loadingNote } = useNote(part)
+  const partTitle = part === t?.index ? 'Overview' : t?.parts.find((p) => p.note === part)?.title
+  useScreenContext(t && ['Library', t.title, partTitle].filter(Boolean).join(' › '), part)
 
   if (isPending) return <p className="text-ink-muted">loading…</p>
   if (error || !t)
@@ -253,7 +255,7 @@ export function LibraryTopicScreen() {
         </div>
       </header>
 
-      <div className="grid items-start gap-6 lg:grid-cols-[14rem_minmax(0,1fr)_20rem]">
+      <div className="grid items-start gap-6 lg:grid-cols-[14rem_minmax(0,1fr)]">
         <nav aria-label="Parts" className="flex flex-col gap-1.5">
           {parts.map((p) => {
             const active = p.note === part
@@ -275,9 +277,6 @@ export function LibraryTopicScreen() {
         </nav>
         <Card key={part ?? ''} className="anim-enter">
           {loadingNote ? <p className="text-ink-muted">loading…</p> : <Markdown text={note?.text ?? ''} />}
-        </Card>
-        <Card title="Questions" subtitle="about the open part" icon={<MessageCircleQuestion />} color="primary">
-          {part && <ChatThread key={part} note={part} newOnly height="max-h-[45vh]" placeholder="Ask about this topic…" />}
         </Card>
       </div>
       <ResearchModal open={updating} onClose={() => setUpdating(false)} update={slug} title={t.title} />

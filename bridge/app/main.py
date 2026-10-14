@@ -244,17 +244,20 @@ class AskRequest(BaseModel):
     conversation_id: str | None = Field(default=None, max_length=40)
     # Turn the conversation's "deep" mode on or off (Tier 2 with the smarter model).
     deep: bool | None = None
-    # Study note open in the HUD ("ask Gandalf about this topic"): goes as Tier 2 context.
+    # What the user is looking at in the HUD (the side chat follows the screen): the screen's name and,
+    # when it shows a memory note (a study topic, a research part, a note in Memory), that note.
+    view: str | None = Field(default=None, max_length=200)
     note: str | None = Field(default=None, max_length=500)
 
 
 @app.post("/ask")
 def ask(req: AskRequest, memory: Path = Depends(get_memory)) -> dict:
     note = None
-    if req.note:
-        path = (memory / req.note).resolve()
-        if not path.is_relative_to((memory / "wiki").resolve()) or path.suffix != ".md" or not path.is_file():
-            raise HTTPException(400, "invalid note (only notes in wiki/)")
+    path = (memory / req.note).resolve() if req.note else None
+    if path and not path.is_relative_to(memory.resolve()):
+        raise HTTPException(400, "invalid note (only notes in the memory)")
+    # The screen is only context: a note that's gone (or isn't Markdown) doesn't cost the question.
+    if path and path.suffix == ".md" and path.is_file():
         note_text = reader.read_text(path)
         # Study note: the user's annotations on the topic go along.
         if m := re.fullmatch(r"wiki/studies/([\w-]+)/[^_].*\.md", req.note):
@@ -266,7 +269,8 @@ def ask(req: AskRequest, memory: Path = Depends(get_memory)) -> dict:
                 note_text += "\n\n## The user's annotations on this topic\n" + "\n\n".join(a["text"] for a in mine)
         note = (req.note, note_text)
     try:
-        r = gandalf.ask(memory, req.text, req.source, req.force_tier, req.confirm, note, req.conversation_id, req.deep)
+        r = gandalf.ask(memory, req.text, req.source, req.force_tier, req.confirm, note, req.conversation_id, req.deep,
+                        view=(req.view or "").strip() or None)
     except claude_cli.ClaudeUnavailable as e:
         raise HTTPException(503, str(e)) from e
     except claude_cli.ClaudeFailed as e:
