@@ -71,6 +71,14 @@ def _resumable(manager: tier3.Manager, c: conversations.Conversation) -> str | N
     return s.id if s and s.status == "ok" and s.output == "memory" and s.claude_session_id else None
 
 
+def _on_screen(view: str | None, note: tuple[str, str] | None) -> str:
+    """For a Tier 3 task: what the user was looking at when they asked."""
+    if not view and not note:
+        return ""
+    where = " ".join(x for x in (f"the screen \"{view}\"" if view else "", f"(note `{note[0]}`)" if note else "") if x)
+    return f"\n\n(When asking, the user was looking at {where}.)"
+
+
 def ask(
     memory: Path,
     text: str,
@@ -80,9 +88,11 @@ def ask(
     note: tuple[str, str] | None = None,
     conversation_id: str | None = None,
     deep: bool | None = None,
+    view: str | None = None,
 ) -> GandalfReply:
     """`conversation_id`: the chat this request belongs to (None starts one; routines keep none).
-    `deep`: the conversation uses the smarter Tier 2 model (GANDALF_TIER2_DEEP_MODEL) from now on."""
+    `deep`: the conversation uses the smarter Tier 2 model (GANDALF_TIER2_DEEP_MODEL) from now on.
+    `view` and `note`: what the user is looking at in the HUD (the screen's name; the note it shows, with its text)."""
     start = time.perf_counter()
     now = clock.now()
 
@@ -92,7 +102,8 @@ def ask(
     c = (conversations.load(memory, conversation_id) if conversation_id else None) or conversations.new(now)
     if deep is not None:
         c.deep = deep
-    turn = conversations.Turn(id=uuid.uuid4().hex[:8], at=now.isoformat(timespec="seconds"), question=text, source=source)
+    turn = conversations.Turn(id=uuid.uuid4().hex[:8], at=now.isoformat(timespec="seconds"), question=text,
+                              source=source, view=view)
     thread: dict | None = None
     title: str | None = None
 
@@ -109,8 +120,9 @@ def ask(
         return r
 
     # ---------- Tier 1 ----------
-    # A question about a note goes straight to the AI, and so does a reply that only makes sense in the conversation.
-    if force_tier in (None, 1) and not note and not conversations.depends_on_context(c, text, now):
+    # A reply that only makes sense in the conversation goes straight to the AI. The screen doesn't: it's only
+    # context, and "remind me…" on a study page is still a rule.
+    if force_tier in (None, 1) and not conversations.depends_on_context(c, text, now):
         ctx = tier1.Context(memory=memory, now=now, tz=clock.tz(), source=source)
         r = tier1.answer(text, ctx)
         if r or force_tier == 1:
@@ -147,7 +159,7 @@ def ask(
     # ---------- Tier 2 ----------
     paused_at = conversations.pause_start(c, now)
     d = tier2.decide(memory, text, now, conversations.context(c, now), note,
-                     model=settings.tier2_deep_model if c.deep else None)
+                     model=settings.tier2_deep_model if c.deep else None, view=view)
     title = d.title
     if paused_at is not None and d.thread == "new":
         left = c.id
@@ -162,7 +174,7 @@ def ask(
 
     if d.action == "escalate":
         s = manager.create(
-            d.task + (f"\n\n(The question is about the note `{note[0]}`.)" if note else "") + conversations.task_context(c),
+            d.task + _on_screen(view, note) + conversations.task_context(c),
             request=text,
             source=source,
             skill=d.skill,

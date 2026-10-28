@@ -6,6 +6,7 @@ import { Badge, Button, Card, Dropdown, EmptyState, Input, Modal, Pill, SearchIn
 import { focusRing, sunken } from '../components/ui/styles'
 import { BridgeError, fetchMemoryFile, type MemoryHealth, type MemoryNote, type TreeNode } from '../lib/api'
 import { cn } from '../lib/cn'
+import { useScreenContext } from '../lib/screenContext'
 import {
   useBacklinks,
   useCreateNote,
@@ -392,6 +393,8 @@ function Health({ onOpen }: { onOpen: (p: string) => void }) {
 function NoteCard({ path, onDialog, onOpen }: { path: string; onDialog: (d: Dialog) => void; onOpen: (p: string) => void }) {
   const { data, isPending, error, refetch } = useNote(path)
   const [editing, setEditing] = useState(false) // the parent remounts this card per note (key)
+  // The side chat sees the open note (its text, when it's Markdown).
+  useScreenContext(data && `Memory › ${data.path}`, data && !data.binary && data.path.endsWith('.md') ? data.path : null)
   // A link by name opens the note wherever it is: keep the real path in the address.
   useEffect(() => {
     if (data && data.path !== path) onOpen(data.path)

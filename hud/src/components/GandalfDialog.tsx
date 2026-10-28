@@ -1,14 +1,13 @@
 import { useIsMutating, useQuery } from '@tanstack/react-query'
-import { MessageCircle, Sparkles } from 'lucide-react'
-import { useRef, useState, type MouseEvent, type PointerEvent } from 'react'
-import { Link } from 'react-router'
+import { MessageCircle } from 'lucide-react'
+import { useRef, type MouseEvent, type PointerEvent } from 'react'
 import { api, type VoiceStatus } from '../lib/api'
+import { assistantPanel, useAssistantPanel } from '../lib/assistantPanel'
 import { cn } from '../lib/cn'
 import { useVoice } from '../lib/useVoice'
-import { ChatThread } from './ChatThread'
-import { Mascot } from './Mascot'
+import { AssistantPanel } from './AssistantPanel'
 import { Pomodoro } from './Pomodoro'
-import { Modal, Orb, useToast } from './ui'
+import { Orb, useToast } from './ui'
 import { focusRing } from './ui/styles'
 import { useAgent } from '../lib/queries'
 
@@ -22,16 +21,17 @@ const HINT = {
 // A press shorter than this is a "click": it toggles recording (handy on the keyboard and on the phone).
 const CLICK_MS = 300
 
-/** The fixed side stack (on every screen): pomodoro, written conversation and the Orb (hold to talk). */
+/** The fixed side stack (on every screen): pomodoro, the side chat's button (on the phone it's on the bottom bar)
+ * and the Orb (hold to talk). */
 export function GandalfDialog() {
   const agentName = useAgent().name
-  const [open, setOpen] = useState(false)
+  const open = useAssistantPanel()
   const toast = useToast()
   const { data: voiceStatus } = useQuery({ queryKey: ['voice'], queryFn: () => api<VoiceStatus>('/voice/status'), staleTime: 60_000 })
   const voiceReady = Boolean(voiceStatus?.stt)
   const typing = useIsMutating({ mutationKey: ['ask'] }) > 0
   const { state, start, finish } = useVoice({
-    onReply: () => setOpen(true),
+    onReply: () => assistantPanel.open(),
     onError: (m) => toast('error', m),
   })
   const pressedAt = useRef(0)
@@ -69,7 +69,7 @@ export function GandalfDialog() {
   function onKeyboardClick(e: MouseEvent) {
     // detail === 0: it came from the keyboard (Enter/Space). Toggles recording.
     if (e.detail !== 0) return
-    if (!voiceReady) return setOpen(true)
+    if (!voiceReady) return assistantPanel.open()
     if (state === 'listening') return finish()
     void start()
   }
@@ -78,15 +78,19 @@ export function GandalfDialog() {
 
   return (
     <>
-      <div className="fixed right-5 bottom-28 z-30 flex flex-col items-center gap-3 lg:right-8 lg:bottom-8">
+      {/* With the side chat open, the stack moves to the left of it. */}
+      <div className={cn('fixed right-5 bottom-28 z-30 flex flex-col items-center gap-3 lg:bottom-8', open ? 'lg:right-[27.5rem]' : 'lg:right-8')}>
         <Pomodoro />
         <button
           type="button"
-          aria-label={`Open the conversation with ${agentName}`}
-          onClick={() => setOpen(true)}
+          aria-label={`Conversation with ${agentName}`}
+          aria-pressed={open}
+          onClick={assistantPanel.toggle}
           className={cn(
-            'grid size-11 cursor-pointer place-items-center rounded-pill bg-surface text-ink-muted shadow-raised-sm hover:text-ink active:shadow-sunken-sm',
+            'hidden size-11 cursor-pointer place-items-center rounded-pill bg-surface hover:text-ink active:shadow-sunken-sm',
+            open ? 'text-primary-text shadow-sunken-sm' : 'text-ink-muted shadow-raised-sm',
             focusRing,
+            'lg:grid',
           )}
         >
           <MessageCircle className="size-5" aria-hidden />
@@ -108,7 +112,7 @@ export function GandalfDialog() {
             onPointerUp={onRelease}
             onPointerCancel={onRelease}
             onClick={(e) => {
-              if (!voiceReady && e.detail !== 0) return setOpen(true)
+              if (!voiceReady && e.detail !== 0) return assistantPanel.open()
               onKeyboardClick(e)
             }}
             onContextMenu={(e) => e.preventDefault()}
@@ -116,13 +120,7 @@ export function GandalfDialog() {
           />
         </div>
       </div>
-      <Modal open={open} onClose={() => setOpen(false)} title={`Talk to ${agentName}`} icon={<Sparkles />}>
-        <Mascot size="sm" className="mb-2" />
-        <ChatThread height="max-h-[45vh]" />
-        <Link to="/chat" onClick={() => setOpen(false)} className="mt-3 inline-block text-xs font-semibold text-primary-text">
-          open the Chat full screen
-        </Link>
-      </Modal>
+      <AssistantPanel />
     </>
   )
 }

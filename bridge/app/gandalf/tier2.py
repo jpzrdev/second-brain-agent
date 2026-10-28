@@ -145,18 +145,24 @@ def _args(model: str | None = None) -> list[str]:
     ]
 
 
+def _attr(value: str) -> str:
+    """A value that goes inside an XML-ish attribute of the prompt (it comes from the HUD)."""
+    return value.replace("&", "&amp;").replace('"', "&quot;").replace("<", "&lt;").replace("\n", " ")
+
+
 def decide(memory: Path, request: str, now: datetime, conversation: str | None = None,
-           note: tuple[str, str] | None = None, model: str | None = None) -> Decision:
+           note: tuple[str, str] | None = None, model: str | None = None, view: str | None = None) -> Decision:
     """`conversation`: the `<conversation>` block (app.conversations.context), so follow-ups like "tomorrow at 9"
     after Gandalf asked "when?" make sense. `model` overrides GANDALF_TIER2_MODEL (a "deep" conversation).
+    `view` and `note`: the screen the user is looking at in the HUD and the note it shows (path, text).
 
     Order matters for Claude Code's prompt cache: what changes least goes first, the time and the request last."""
     prompt = f"<context>\n{build_context(memory, now)}\n</context>\n\n"
     if conversation:
         prompt += conversation + "\n\n"
-    if note:
-        path, text = note
-        prompt += f'<note_being_studied path="{path}">\n{text[:8000]}\n</note_being_studied>\n\n'
+    if view or note:
+        attrs = (f' view="{_attr(view)}"' if view else "") + (f' path="{_attr(note[0])}"' if note else "")
+        prompt += f"<on_screen{attrs}>\n{note[1][:8000]}\n</on_screen>\n\n" if note else f"<on_screen{attrs} />\n\n"
     prompt += f"<now>\n{time_context(now)}\n</now>\n\n<request>\n{request.strip()}\n</request>"
 
     total_in = total_out = 0

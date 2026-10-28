@@ -537,7 +537,7 @@ class Manager:
         if s.status == "ok" and s.ephemeral_id:
             n = push.Notification(f"📬 {name} is ready", "Tap to read it in Gandalf.", "/", tag=f"ephemeral-{s.routine or s.id}")
         elif s.status == "ok" and s.skill == "schedule-event":
-            n = push.Notification("📅 Event created on Google Calendar", s.request.removeprefix("Add to calendar: ")[:120], "/chat")
+            n = push.Notification("📅 Event created on Google Calendar", s.request.removeprefix("Add to calendar: ")[:120], "/")
         elif s.status == "ok" and s.notify:
             n = push.Notification(f"✅ {name} finished", "Tap to see the result.", f"/terminals?session={s.id}", tag=f"routine-{s.routine or s.id}")
         elif s.status not in ("ok", "cancelled") and (s.routine or s.skill == "schedule-event"):

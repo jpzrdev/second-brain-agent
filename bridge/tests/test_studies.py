@@ -1,6 +1,7 @@
 """Studies tab: topic collection, ephemeral quiz, annotations, material and the note context in the chat."""
 
 import frontmatter
+import pytest
 
 from app import studies
 
@@ -98,22 +99,52 @@ def test_short_summary_skips_headings_and_lists():
     assert studies._short_summary("## T\n\n- item\n\n> callout\n\nText **bold** with [[a/b|link]].") == "Text bold with link."
 
 
-def test_question_about_a_note_goes_to_tier2_with_context(client, memory, monkeypatch):
+def test_the_screen_goes_to_tier2_as_context(client, memory, monkeypatch):
     from app.gandalf import tier2
 
     _prepare(memory)
     seen = {}
     original = tier2.decide
 
-    def spy(memory_, request, now, conversation=None, note=None, model=None):
-        seen["note"] = note
-        return original(memory_, request, now, conversation, note, model)
+    def spy(memory_, request, now, conversation=None, note=None, model=None, view=None):
+        seen.update(note=note, view=view)
+        return original(memory_, request, now, conversation, note, model, view)
 
     monkeypatch.setattr(tier2, "decide", spy)
-    r = client.post("/ask", json={"text": "my tasks", "note": NOTE}).json()
-    assert r["tier"] == 2  # even a Tier 1 phrase goes to the AI when it's about the note
+    r = client.post("/ask", json={"text": "explain the second part", "note": NOTE, "view": "Studies › Calculus › Derivatives"}).json()
+    assert r["tier"] == 2
     assert seen["note"][0] == NOTE and "Derivatives" in seen["note"][1]
+    assert seen["view"] == "Studies › Calculus › Derivatives"
     assert client.post("/ask", json={"text": "x", "note": "../.env"}).status_code == 400
+
+
+def test_a_rule_still_answers_with_a_screen_open(client, memory):
+    _prepare(memory)
+    r = client.post("/ask", json={"text": "my tasks", "note": NOTE, "view": "Studies › Calculus › Derivatives"}).json()
+    assert r["tier"] == 1  # the screen is only context: "my tasks" on a study page is still a rule
+    turn = client.get(f"/conversations/{r['conversation_id']}").json()["turns"][-1]
+    assert turn["view"] == "Studies › Calculus › Derivatives"  # the chat shows where it was asked from
+    # A note that's gone doesn't cost the question.
+    assert client.post("/ask", json={"text": "my tasks", "note": "wiki/studies/gone.md"}).status_code == 200
+
+
+def test_on_screen_block_in_the_prompt(memory, monkeypatch):
+    from datetime import datetime
+
+    from app.gandalf import claude_cli, tier2
+
+    prompts = []
+
+    def capture(prompt, *args, **kwargs):
+        prompts.append(prompt)
+        raise claude_cli.ClaudeFailed("only the prompt matters")
+
+    monkeypatch.setattr(claude_cli, "run_json", capture)
+    for kw in ({"view": 'Memory › "raw"'}, {"view": "Library", "note": ("wiki/x.md", "body")}):
+        with pytest.raises(claude_cli.ClaudeFailed):
+            tier2.decide(memory, "this?", datetime(2026, 10, 9, 9), **kw)
+    assert '<on_screen view="Memory › &quot;raw&quot;" />' in prompts[0]
+    assert '<on_screen view="Library" path="wiki/x.md">\nbody\n</on_screen>' in prompts[1]
 
 
 def test_pomodoro_without_scheduler_does_not_break(client):
@@ -147,7 +178,7 @@ def test_annotations_go_into_the_question_context(client, memory, monkeypatch):
     client.post("/studies/calculus/annotations", json={"text": "My question: what about the product rule?", "topic": NOTE})
     seen = {}
     original = tier2.decide
-    monkeypatch.setattr(tier2, "decide", lambda v, p, a, conv=None, note=None, model=None: seen.update(note=note) or original(v, p, a, conv, note, model))
+    monkeypatch.setattr(tier2, "decide", lambda v, p, a, conv=None, note=None, model=None, view=None: seen.update(note=note) or original(v, p, a, conv, note, model, view))
     client.post("/ask", json={"text": "explain", "note": NOTE})
     assert "product rule" in seen["note"][1]
 

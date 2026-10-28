@@ -155,6 +155,8 @@ export type ConversationTurn = {
   tier: number
   intent: string | null
   source: string
+  /** The screen the question was asked from. */
+  view?: string | null
   receipt_id: string | null
   session_id: string | null
   ephemeral_id: string | null

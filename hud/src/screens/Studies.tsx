@@ -9,7 +9,6 @@ import {
   GraduationCap,
   Layers,
   ListOrdered,
-  MessageCircleQuestion,
   NotebookPen,
   Plus,
   RotateCcw,
@@ -22,7 +21,6 @@ import {
 } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router'
-import { ChatThread } from '../components/ChatThread'
 import { Annotations, SendMaterial } from '../components/StudyAnnotations'
 import { Markdown } from '../components/Markdown'
 import { Badge, BentoGrid, BentoItem, Button, Card, EmptyState, Input, Modal, Pill, ProgressBar, Textarea, useToast, type Color } from '../components/ui'
@@ -31,6 +29,7 @@ import { MAX_QUIZ_QUESTIONS, type QuizGrade, type QuizQuestion, type QuizType, t
 import { cn } from '../lib/cn'
 import { pomodoro } from '../lib/pomodoro'
 import { useAnnotations, useGenerateStudy, useGradeQuiz, useNote, useQuiz, useRemoveSubject, useSaveAnnotation, useStudies, useSubject, useAgent } from '../lib/queries'
+import { useScreenContext } from '../lib/screenContext'
 
 const subjectUrl = (s: string) => `/studies/${encodeURIComponent(s)}`
 const topicUrl = (s: string, note: string) => `${subjectUrl(s)}/topic?note=${encodeURIComponent(note)}`
@@ -344,6 +343,7 @@ export function SubjectScreen() {
   const agentName = useAgent().name
   const { subject = '' } = useParams()
   const { data: s, isPending, error } = useSubject(subject)
+  useScreenContext(s && `Studies › ${s.title}`)
   const { generate, pending } = useGenerate()
   const [newTopic, setNewTopic] = useState<string | null>(null)
   const [material, setMaterial] = useState(false)
@@ -473,6 +473,8 @@ export function TopicScreen() {
   const index = s?.topics.findIndex((x) => x.note === note) ?? -1
   const previous = index > 0 ? s?.topics[index - 1] : undefined
   const next = index >= 0 ? s?.topics[index + 1] : undefined
+  // The side chat sees the topic (and the annotations, which the Bridge adds): "explain the second part" works.
+  useScreenContext(title && `Studies › ${s?.title ?? subject} › ${title}`, note)
 
   return (
     <div className="flex flex-col gap-6">
@@ -530,9 +532,6 @@ export function TopicScreen() {
           )}
         </Card>
         <div className="flex flex-col gap-6">
-          <Card title="Questions" subtitle={`${agentName} answers based on this note and your annotations`} icon={<MessageCircleQuestion />} color="primary">
-            <ChatThread key={note} note={note} newOnly height="max-h-[40vh]" placeholder="Ask about this topic…" />
-          </Card>
           <Card title="My annotations" subtitle="about this topic" icon={<NotebookPen />} color="silver">
             <Annotations subject={subject} items={annotations} topic={note} />
           </Card>
@@ -720,6 +719,7 @@ function QuizSession() {
   // location.key changes on every navigation: "New quiz" generates another one instead of reusing the previous
   const { data: quiz, isPending, error, refetch, isFetching } = useQuiz(subject, { count, type, topic }, location.key)
   const { data: s } = useSubject(subject)
+  useScreenContext(s && `Studies › ${s.title} › Quiz`)
   const save = useSaveAnnotation(subject)
   const [i, setI] = useState(0)
   const [results, setResults] = useState<Record<number, Result>>({})

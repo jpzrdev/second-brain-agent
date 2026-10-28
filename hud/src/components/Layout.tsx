@@ -1,5 +1,6 @@
 import { Suspense } from 'react'
 import { Navigate, NavLink, Outlet, useLocation } from 'react-router'
+import { useAssistantPanel } from '../lib/assistantPanel'
 import { cn } from '../lib/cn'
 import { useAgent, useSetup } from '../lib/queries'
 import { BridgeStatus } from './BridgeStatus'
@@ -14,12 +15,14 @@ import { focusRing } from './ui/styles'
 export function Layout() {
   const { pathname } = useLocation()
   const agent = useAgent()
+  const chatOpen = useAssistantPanel()
   const { data: setup, isPending } = useSetup()
   // First run: the setup comes before everything. (Without the Bridge, the screens show it themselves.)
   if (isPending) return null
   if (setup && !setup.done) return <Navigate to="/setup" replace />
   return (
-    <div className="min-h-dvh">
+    // A wide window makes room for the side chat: the screen stays visible beside it.
+    <div className={cn('min-h-dvh', chatOpen && 'lg:pr-[26.5rem]')}>
       <SystemEvents />
       <header className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 pt-6 pb-2 sm:px-6">
         <NavLink to="/" aria-label={`${agent.name}: home`} className={cn('logo-wizard flex shrink-0 items-center gap-3 rounded-pill', focusRing)}>

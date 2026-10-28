@@ -41,7 +41,7 @@ def protect_logs() -> None:
 
 
 class _HudSpa(StaticFiles):
-    """Build files; React Router routes (/routines, /chat…) fall back to index.html."""
+    """Build files; React Router routes (/routines, /memory…) fall back to index.html."""
 
     async def get_response(self, path: str, scope):
         try:

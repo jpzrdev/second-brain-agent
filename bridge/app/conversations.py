@@ -66,6 +66,7 @@ class Turn:
     tier: int = 0
     intent: str | None = None
     source: str = "hud"
+    view: str | None = None  # the HUD screen the question was asked from (it went along as context)
     receipt_id: str | None = None
     session_id: str | None = None
     ephemeral_id: str | None = None

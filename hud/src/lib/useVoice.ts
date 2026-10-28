@@ -3,6 +3,7 @@ import { fetchSpeech, postFile } from './api'
 import { chat } from './chatStore'
 import { mascot } from './mascot'
 import { useAsk } from './queries'
+import { screen } from './screenContext'
 
 export type VoiceState = 'idle' | 'listening' | 'thinking' | 'speaking'
 
@@ -78,12 +79,13 @@ export function useVoice({ onReply, onError }: Options = {}) {
       }
       if (!text) return fail("I didn't catch anything. Hold the button while you talk.")
 
-      const id = chat.add(text)
+      const context = screen.current()
+      const id = chat.add(text, context?.view)
       onReply?.()
       mascot.feed(15)
       const { conversationId, deep } = chat.get()
       ask.mutate(
-        { text, source: 'voice', conversationId, deep },
+        { text, source: 'voice', view: context?.view, note: context?.note, conversationId, deep },
         {
           onSuccess: (reply) => {
             chat.settle(id, reply)
